@@ -65,8 +65,10 @@ layout = [
 	[sg.Output(size=(80, 10), key='status')],
 	[sg.Submit("Compile", key='compile'), sg.Submit("Upload", key='upload'), sg.Cancel(key='cancel')]]
 
+
 window = sg.Window('s-one binaries builder', default_element_size=(40, 1)).Layout(layout).Finalize()
-#button, values = window.Read()
+window['upload'].set_tooltip('via serial port') 
+
 
 while True:
 	event, values = window.Read()
@@ -350,7 +352,6 @@ as a monostable button (each press of the button toggle the relay).*/
 			hf.close()
 			bin_file = ino_file + "." + comp_flag + "bin"
 			cmd = "~/bin/arduino-cli compile" + " -u -p /dev/ttyUSB0 -b " + fqbns[fqbn] + " " + ino_file + " -o " + bin_file 
-			#print("prepared files:", ino_file, h_file, "compilation options:", comp_flag)
 			try:
 				print(cmd)
 				print('Wait for finish compiling and uploading...')
@@ -369,6 +370,10 @@ as a monostable button (each press of the button toggle the relay).*/
 				disableContent(False)
 				
 	elif event == 'cancel':
+		sg.Popup('Title',
+         'The results of the window.',
+         'The button clicked was "{}"'.format(event),
+         'The values are', values)
 		window.close()
 		sys.exit(0)
 	else:

@@ -3,6 +3,11 @@
 
   Based on SuplaDevice library https://github.com/SUPLA/arduino Copyright (C)
   AC SOFTWARE SP. Z O.O.
+ 
+  +---------------------------------------------------------------------------------+
+  |Thanks to colleagues from the forum.supla.org in particular: @pzygmunt and @klew |
+  |without whom this program would probably not have been created.                  |
+  +---------------------------------------------------------------------------------+
 
   Tested with ESP8266 core ver. 2.6.3 on Wemos D1 mini V3.0.0 and ESP-01S with
   relay board v.4.0
@@ -581,8 +586,12 @@ void showInfo() {
       h = n / 3600;
       n %= 3600;
       m = n / 60;
+      serial.println("connected");
       serial.println( "online time: " + String(d) + " days, " + String(h) + " hours, " + String(m) + " minutes");
     } 
+    else {
+      serial.println("disconnected");
+    }
   }
   serial.print("local IP: ");
   serial.println(WiFi.localIP());
@@ -878,6 +887,7 @@ void readConfig() {
 
 #ifdef TELNET
 void telnetConnected() {
+  timeStamp();
   String menu = "";
   menu += "Enter \033[32m\033[1mh\033[0m\ for help.";
   serial.println(menu);
