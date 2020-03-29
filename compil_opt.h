@@ -34,6 +34,10 @@ as a monostable button (each press of the button toggle the relay).*/
 
 //#define IMPULSE_COUNTER //NOT IMPLEMENTED YET
 
+/**When you enable ssl connection, the sketch uses a lot of memory. 
+This may cause a crash.*/
+#define SSL_CONNECTION
+
 //****************************************************************************************************
 
 #endif
