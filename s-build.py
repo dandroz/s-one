@@ -61,13 +61,14 @@ layout = [
 	[sg.Text('Choose board:       '), sg.Radio('WEMOS', "RADIO1", default=True, key='wemos', enable_events=True), sg.Radio('ESP01S', "RADIO1", key='esp01s', enable_events=True)],
 	[sg.Text('Select options:')],     
 	[sg.Checkbox('INPUTS', key='inputs'), sg.Checkbox('TELNET', default=True, key='telnet'),sg.Checkbox('DHT_THERMO', key='dht_thermo', enable_events=True), sg.Checkbox('DS_THERMO', key='ds_thermo', enable_events=True)],     
-	[sg.Checkbox('RF_THERMO', key='rf_thermo', enable_events=True ), sg.Checkbox('RF_BUTTON', key='rf_button', enable_events=True), sg.Checkbox('IMPULSE_COUNTER', key='impulse_counter', enable_events=True)],
+	[sg.Checkbox('RF_THERMO', key='rf_thermo', enable_events=True ), sg.Checkbox('RF_BUTTON', key='rf_button', enable_events=True), sg.Checkbox('IMPULSE_COUNTER', key='impulse_counter', enable_events=True), sg.Checkbox('SSL_CONNECTION', default=True, key='ssl_connection', enable_events=True)],
 	[sg.Output(size=(80, 10), key='status')],
 	[sg.Submit("Compile", key='compile'), sg.Submit("Upload", key='upload'), sg.Cancel(key='cancel')]]
 
 
 window = sg.Window('s-one binaries builder', default_element_size=(40, 1)).Layout(layout).Finalize()
 window['upload'].set_tooltip('via serial port') 
+window['ssl_connection'].set_tooltip('When you enable ssl connection,\nthe sketch uses a lot of memory.\nThis may cause a crash.')
 
 
 while True:
@@ -212,6 +213,19 @@ as a monostable button (each press of the button toggle the relay).*/
 				compil_opt_h += """
 //#define IMPULSE_COUNTER //NOT IMPLEMENTED YET
 """
+			if values['ssl_connection']:
+				comp_flag += "SSL."
+				compil_opt_h += """
+/**When you enable ssl connection, the sketch uses a lot of memory. 
+This may cause a crash.*/
+#define SSL_CONNECTION
+"""
+			else:
+				compil_opt_h += """
+/**When you enable ssl connection, the sketch uses a lot of memory. 
+This may cause a crash.*/
+//#define SSL_CONNECTION
+"""
 			
 			compil_opt_h += compil_opt_h_foot
 			h_file = re.sub(ino_file.split("/")[-1], "compil_opt.h", ino_file)
@@ -344,7 +358,19 @@ as a monostable button (each press of the button toggle the relay).*/
 				compil_opt_h += """
 //#define IMPULSE_COUNTER //NOT IMPLEMENTED YET
 """
-			
+			if values['ssl_connection']:
+				comp_flag += "SSL."
+				compil_opt_h += """
+/**When you enable ssl connection, the sketch uses a lot of memory. 
+This may cause a crash.*/
+#define SSL_CONNECTION
+"""
+			else:
+				compil_opt_h += """
+/**When you enable ssl connection, the sketch uses a lot of memory. 
+This may cause a crash.*/
+//#define SSL_CONNECTION
+"""
 			compil_opt_h += compil_opt_h_foot
 			h_file = re.sub(ino_file.split("/")[-1], "compil_opt.h", ino_file)
 			hf = open(h_file, "w")
@@ -370,10 +396,10 @@ as a monostable button (each press of the button toggle the relay).*/
 				disableContent(False)
 				
 	elif event == 'cancel':
-		sg.Popup('Title',
-         'The results of the window.',
-         'The button clicked was "{}"'.format(event),
-         'The values are', values)
+		# sg.Popup('Title',
+         # 'The results of the window.',
+         # 'The button clicked was "{}"'.format(event),
+         # 'The values are', values)
 		window.close()
 		sys.exit(0)
 	else:

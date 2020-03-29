@@ -61,7 +61,7 @@
 
 //#define SUPLA_COMM_DEBUG
 
-#define ver "1.58"
+#define ver "1.59"
 
 #include "compil_opt.h"
 
@@ -351,6 +351,9 @@ String getCompilOptions() {
 #endif
 #ifdef IMPULSE_COUNTER
   comp_opt += "IMPULSE_COUNTER.";
+#endif
+#ifdef SSL_CONNECTION
+  comp_opt += "SSL.";
 #endif
 
   return comp_opt;
@@ -1139,6 +1142,10 @@ void setup() {
     WiFi.persistent(false);
     WiFi.softAPdisconnect(true);
     wifi = new Supla::ESPWifi(ssid, password);
+#ifndef SSL_CONNECTION
+    serial.println("disabling ssl connection...");
+    wifi->enableSSL(false);
+#endif
     serial.println("wifi inicialized...");
 
 #ifdef RF_THERMO
