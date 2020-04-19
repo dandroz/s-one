@@ -55,7 +55,7 @@
   D8  IO,10k Pull-down, SS         GPIO15
   G   Ground                       GND
   5V  5V                           -
-  3V3 3.3V                         3.3Vcurl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
+  3V3 3.3V                         3.3V
   RST Reset                        RST
 */
 
@@ -1909,7 +1909,7 @@ void handleSubmit() {
   res += "rf button: ";
   String rfb = server->arg("rfb");
   res += rfb;
-  res += "<br>";one_16504200
+  res += "<br>";
 #endif
   res += "<br>";
   res += "</P><BR>";
