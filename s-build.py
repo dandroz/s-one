@@ -30,7 +30,8 @@ if len(sys.argv) == 2:
 		
 fqbns = {"WEMOS" :
 		"esp8266com:esp8266:d1_mini:xtal=80,vt=flash,exception=disabled,ssl=all,eesz=4M,ip=lm2f,dbg=Disabled,lvl=None____,wipe=none,baud=921600",
-		 "ESP01S" : "esp8266com:esp8266:generic:xtal=80,vt=flash,exception=disabled,ssl=all,ResetMethod=ck,CrystalFreq=26,FlashFreq=40,FlashMode=dout,eesz=1M,led=2,sdk=nonosdk221,ip=lm2f,dbg=Disabled,lvl=None____,wipe=none,baud=115200"}
+		 "ESP01S" : "esp8266com:esp8266:generic:xtal=80,vt=flash,exception=disabled,ssl=all,ResetMethod=ck,CrystalFreq=26,FlashFreq=40,FlashMode=dout,eesz=1M,led=2,sdk=nonosdk221,ip=lm2f,dbg=Disabled,lvl=None____,wipe=none,baud=115200",
+		 "SONOFF_MINI" : "esp8266com:esp8266:generic:xtal=80,vt=flash,exception=legacy,ssl=all,ResetMethod=ck,CrystalFreq=26,FlashFreq=40,FlashMode=dout,eesz=1M,led=13,sdk=nonosdk221,ip=lm2f,dbg=Disabled,lvl=None____,wipe=none,baud=57600"}
 	
 compil_opt_h_head = """
 #ifndef compil_opt_h
@@ -58,7 +59,8 @@ def disableContent(istrue):
    
 layout = [      
 	[sg.Text('Select sketch:', size=(15, 1)), sg.InputText(ino_file, key='file'), sg.FileBrowse()],      
-	[sg.Text('Choose board:       '), sg.Radio('WEMOS', "RADIO1", default=True, key='wemos', enable_events=True), sg.Radio('ESP01S', "RADIO1", key='esp01s', enable_events=True)],
+	[sg.Text('Choose board:       '), sg.Radio('WEMOS', "RADIO1", default=True, key='wemos', enable_events=True), sg.Radio('ESP01S', "RADIO1", key='esp01s', enable_events=True),
+	sg.Radio('SONOFF_MINI', "RADIO1", key='sonoff_mini', enable_events=True)],
 	[sg.Text('Select options:')],     
 	[sg.Checkbox('INPUTS', key='inputs'), sg.Checkbox('TELNET', default=True, key='telnet'),sg.Checkbox('DHT_THERMO', key='dht_thermo', enable_events=True), sg.Checkbox('DS_THERMO', key='ds_thermo', enable_events=True)],     
 	[sg.Checkbox('RF_THERMO', key='rf_thermo', enable_events=True ), sg.Checkbox('RF_BUTTON', key='rf_button', enable_events=True), sg.Checkbox('IMPULSE_COUNTER', key='impulse_counter', enable_events=True), sg.Checkbox('SSL_CONNECTION', default=True, key='ssl_connection', enable_events=True)],
@@ -89,7 +91,7 @@ while True:
 		else:
 			window.FindElement('ds_thermo').Update(disabled=False)
 			window.FindElement('dht_thermo').Update(disabled=False)
-	else:
+	elif values['wemos']:
 		if values['rf_thermo']:
 			window.FindElement('rf_thermo').Update(disabled=False)
 			window.FindElement('rf_button').Update(disabled=True)
@@ -106,6 +108,14 @@ while True:
 			window.FindElement('rf_thermo').Update(disabled=False)
 			window.FindElement('rf_button').Update(disabled=False)
 			window.FindElement('impulse_counter').Update(disabled=False)
+			window.FindElement('ds_thermo').Update(disabled=False)
+			window.FindElement('dht_thermo').Update(disabled=False)	
+	elif values['sonoff_mini']:
+		window.FindElement('rf_thermo').Update(disabled=True)
+		window.FindElement('rf_button').Update(disabled=True)
+		window.FindElement('impulse_counter').Update(disabled=True)
+		window.FindElement('ds_thermo').Update(disabled=True)
+		window.FindElement('dht_thermo').Update(disabled=True)
 	
 	if event == 'compile':
 		disableContent(True)
@@ -121,11 +131,19 @@ while True:
 				fqbn = "WEMOS"
 				compil_opt_h += """//#define ESP01S
 #define WEMOS
+//#define SONOFF_MINI
 """
-			else:
+			elif values['esp01s']:
 				fqbn = "ESP01S"
 				compil_opt_h += """#define ESP01S
 //#define WEMOS
+//#define SONOFF_MINI
+"""
+			elif values['sonoff_mini']:
+				fqbn = "SONOFF_MINI"
+				compil_opt_h += """//#define ESP01S
+//#define WEMOS
+#define SONOFF_MINI
 """
 			comp_flag = fqbn + "."
 			if values['inputs']:
@@ -241,7 +259,7 @@ This may cause a crash.*/
 				window.refresh()
 				res_ar = subprocess.call(cmd, shell=True)
 				if res_ar > 0:
-					print('**** ERROR ****\n')
+					print('**** COMPILATION ERROR ****\n')
 					sg.popup_error('Something went wrong')
 					disableContent(False)
 				else:
@@ -266,11 +284,19 @@ This may cause a crash.*/
 				fqbn = "WEMOS"
 				compil_opt_h += """//#define ESP01S
 #define WEMOS
+//#define SONOFF_MINI
 """
-			else:
+			elif values['esp01s']:
 				fqbn = "ESP01S"
 				compil_opt_h += """#define ESP01S
 //#define WEMOS
+//#define SONOFF_MINI
+"""
+			elif values['sonoff_mini']:
+				fqbn = "SONOFF_MINI"
+				compil_opt_h += """//#define ESP01S
+//#define WEMOS
+#define SONOFF_MINI
 """
 			comp_flag = fqbn + "."
 			if values['inputs']:
@@ -384,7 +410,7 @@ This may cause a crash.*/
 				window.refresh()
 				res_ar = subprocess.call(cmd, shell=True)
 				if res_ar > 0:
-					print('**** ERROR ****\n')
+					print('**** COMPILATION OR UPLOAD ERROR ****\n')
 					sg.popup_error('Something went wrong')
 					disableContent(False)
 				else:
@@ -397,9 +423,9 @@ This may cause a crash.*/
 				
 	elif event == 'cancel':
 		# sg.Popup('Title',
-         # 'The results of the window.',
-         # 'The button clicked was "{}"'.format(event),
-         # 'The values are', values)
+		 # 'The results of the window.',
+		 # 'The button clicked was "{}"'.format(event),
+		 # 'The values are', values)
 		window.close()
 		sys.exit(0)
 	else:

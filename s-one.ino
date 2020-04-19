@@ -9,8 +9,8 @@
   |without whom this program would probably not have been created.                  |
   +---------------------------------------------------------------------------------+
 
-  Tested with ESP8266 core ver. 2.6.3 on Wemos D1 mini V3.0.0 and ESP-01S with
-  relay board v.4.0
+  Tested with ESP8266 core ver. 2.6.3 on Wemos D1 mini V3.0.0, ESP-01S with
+  relay board v.4.0 and Sonoff mini DIY.
 
   For some time written in Geany (https://www.geany.org/) and compiled
   by arduino-cli (https://arduino.github.io/arduino-cli/installation/).
@@ -55,13 +55,13 @@
   D8  IO,10k Pull-down, SS         GPIO15
   G   Ground                       GND
   5V  5V                           -
-  3V3 3.3V                         3.3V
+  3V3 3.3V                         3.3Vcurl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
   RST Reset                        RST
 */
 
 //#define SUPLA_COMM_DEBUG
 
-#define ver "1.59"
+#define ver "1.60"
 
 #include "compil_opt.h"
 
@@ -77,12 +77,16 @@
 #error "RF is not implemented yet on ESP-01!"
 #endif
 
-#if defined(ESP01S) && (defined(DHT_THERMO) && defined(DS_THERMO)) //only one type of themperature  sensor is allowed
+#if defined(ESP01S) && (defined(DHT_THERMO) && defined(DS_THERMO)) //only one type of themperature  sensor is allowed on ESP-01
 #error "On ESP-01 only one type of temperature sensor is allowed on.\n\rPlease define only one of them."
 #endif
 
 #if (defined(RF_BUTTON) || defined(RF_THERMO)) && defined(IMPULSE_COUNTER)
 #error "RF and IMPULSE_COUNTER cannot be used at the same time.\n\rPlease define only one of them."
+#endif
+
+#if (defined(RF_BUTTON) || defined(RF_THERMO) || defined(IMPULSE_COUNTER) || defined(DHT_THERMO) || defined(DS_THERMO)) && defined(SONOFF_MINI)
+#error "RF receive, IMPULSE_COUNTER and thermometers are not suported on Sonoff Mini"
 #endif
 
 #include <SuplaDevice.h> //https://github.com/klew/arduino/tree/master (GPL)
@@ -181,8 +185,10 @@ RCSwitch mySwitch = RCSwitch();
 //*********************** Modules configuration section *****************************************
 #ifdef ESP01S
 #define RELAY_PIN 0            // Relay pin on ESP-01S
-#else
+#elif defined(WEMOS)
 #define RELAY_PIN D1           // Relay pin on WEMOS
+#elif defined(SONOFF_MINI)
+#define RELAY_PIN 12
 #endif
 
 #ifdef INPUTS
@@ -190,15 +196,25 @@ RCSwitch mySwitch = RCSwitch();
 #ifdef ESP01S
 #define INPUT_2_PIN 2         // input pin on ESP-01S
 int config_btn_pin = INPUT_2_PIN;     // Pin of a config button. Push it until 10 second.
-#else
+
+#elif defined(WEMOS)
 #define INPUT_1_PIN D2        // first input pin on WEMOS
 #define INPUT_2_PIN D7         // second input pin on WEMOS
-int config_btn_pin = INPUT_1_PIN;     // Pin of a config button. Push it until 10 second.
+int config_btn_pin = INPUT_1_PIN;     // TODO
 bool pir_on_day = false;              // if true, PIR continue detecting in the day
+
+#elif defined(SONOFF_MINI)
+//#define INPUT_1_PIN        // first input pin on Sonoff mini
+#define INPUT_2_PIN 4
+int config_btn_pin = 0; //TODO
 #endif
 #endif //INPUTS
 
-#define led_pin 2                  // LED pin
+#ifdef SONOFF_MINI
+#define LED_PIN 13
+#else
+#define LED_PIN 2                  // LED pin
+#endif
 
 #ifdef DS_THERMO
 #ifdef ESP01S
@@ -330,6 +346,9 @@ String getCompilOptions() {
 #endif
 #ifdef WEMOS
   comp_opt += "WEMOS.";
+#endif
+#ifdef SONOFF_MINI
+  comp_opt += "SONOFF_MINI.";
 #endif
 #ifdef INPUTS
   comp_opt += "INPUTS.";
@@ -490,7 +509,7 @@ class StatusLed : public Supla::Element {
       now = millis();
       if (cloud_connected) {
         if (led == 1 && (now > last_led_time + 20)) {
-          analogWrite(led_pin, fade);
+          analogWrite(LED_PIN, fade);
           if (fade >= 500) add = -1;
           if (fade <= 0) add = 1;
           fade = fade + add;
@@ -499,7 +518,7 @@ class StatusLed : public Supla::Element {
       }
       else {
         if ((led) == 1 && (now > last_led_time + 500)) {
-          digitalWrite(led_pin, (digitalRead(led_pin) == HIGH ? LOW : HIGH));
+          digitalWrite(LED_PIN, (digitalRead(LED_PIN) == HIGH ? LOW : HIGH));
           last_led_time = now;
         }
       }
@@ -508,7 +527,7 @@ class StatusLed : public Supla::Element {
     void onInit() {
       if (led == 1) {
         analogWriteRange(500);
-        pinMode(led_pin, OUTPUT);
+        pinMode(LED_PIN, OUTPUT);
         add = 1;
         fade = 0;
       }
@@ -521,7 +540,7 @@ class StatusLed : public Supla::Element {
 };
 
 #ifdef INPUTS
-#ifndef ESP01S
+#if !(defined(ESP01S) || defined(SONOFF_MINI))
 class PIRsensor : public Supla::Element {
   public:
     PIRsensor() {}
@@ -621,7 +640,7 @@ void showInfo() {
   serial.print(":");
   serial.println(mac[0], HEX);
 #ifdef INPUTS
-#ifndef ESP01S
+#if !(defined(ESP01S) || defined(SONOFF_MINI))
   serial.print("input 1 mode: ");
   serial.println(INPUTS_MODES[input_1_mode]);
 #endif
@@ -666,7 +685,7 @@ void showInfo() {
   serial.println(ESP.getFreeSketchSpace());
 }
 
-#if !defined(ESP01S) && defined(INPUTS)
+#if !(defined(ESP01S) || defined(SONOFF_MINI)) && defined(INPUTS)
 bool pirTurnOn() {
   if (pir_on_day) {
     return true;
@@ -738,7 +757,7 @@ void timeStamp() {
   }
 }
 
-#ifndef ESP01S
+#if !(defined(ESP01S) || defined(SONOFF_MINI))
 bool isDark() {
   int summertime_offset;
   int e = now();
@@ -972,6 +991,7 @@ int bin2dec(int *binary, int first, int last) {
   return value;
 }
 
+//based on https://forum.pilight.org/showthread.php?tid=3340
 int rfHumidity() {
   int b = (bin2dec(rf_bin, 33, 37) * 10) + bin2dec(rf_bin, 37, 41);
   if (b < 1 || b > 100) {
@@ -1164,7 +1184,7 @@ void setup() {
 #endif
 
 #ifdef INPUTS
-#ifndef ESP01S
+#if !(defined(ESP01S) || defined(SONOFF_MINI))
     input_1 = new Supla::Control::Button(INPUT_1_PIN);
     serial.print("added input 1 on GPIO");
     serial.println(INPUT_1_PIN);
@@ -1184,7 +1204,7 @@ void setup() {
     serial.println(RELAY_PIN);
 
 #ifdef INPUTS
-#ifndef ESP01S
+#if !(defined(ESP01S) || defined(SONOFF_MINI))
     if (input_1_mode > 0) {
       switch (input_1_mode) {
         case MODE_TOUCH_SENSOR: {
@@ -1304,7 +1324,7 @@ void configMode() {
   serial.println(apssid);
   serial.println(appassword);
   WiFi.disconnect(true);
-  pinMode(led_pin, OUTPUT);
+  pinMode(LED_PIN, OUTPUT);
   serial.print("setting AP config: ");
   serial.println(WiFi.softAPConfig(ap_local_IP, ap_gateway , ap_subnet) ? "Ready" : "Failed!");
   serial.print("setting up AP: ");
@@ -1455,17 +1475,17 @@ void handleUploadConfigFile() {
 }
 
 void handleRoot() {
-#if defined(RF_BUTTON) && defined(INPUTS) && !defined(ESP01S)//
+#if defined(RF_BUTTON) && defined(INPUTS) && !(defined(ESP01S) || defined(SONOFF_MINI))//
   if (server->hasArg("crd") && server->hasArg("tmr") && server->hasArg("sid") && server->hasArg("wpw") && server->hasArg("srv") && server->hasArg("eml") && server->hasArg("auk") && server->hasArg("gid") && server->hasArg("nam") && server->hasArg("aid") && server->hasArg("apw") && server->hasArg("c2b") && server->hasArg("c1b") && server->hasArg("rfb")) {
     handleSubmit();
   }
 #endif
-#if defined(INPUTS) && !defined(RF_BUTTON) && !defined(ESP01S)//
+#if defined(INPUTS) && !defined(RF_BUTTON) && !(defined(ESP01S) || defined(SONOFF_MINI))//
   if (server->hasArg("crd") && server->hasArg("tmr") && server->hasArg("sid") && server->hasArg("wpw") && server->hasArg("srv") && server->hasArg("eml") && server->hasArg("auk") && server->hasArg("gid") && server->hasArg("nam") && server->hasArg("aid") && server->hasArg("apw") && server->hasArg("c2b") && server->hasArg("c1b")) {
     handleSubmit();
   }
 #endif
-#if defined(INPUTS) && defined(ESP01S)//
+#if defined(INPUTS) && (defined(ESP01S) || defined(SONOFF_MINI))//
   if (server->hasArg("sid") && server->hasArg("wpw") && server->hasArg("srv") && server->hasArg("eml") && server->hasArg("auk") && server->hasArg("gid") && server->hasArg("nam") && server->hasArg("aid") && server->hasArg("apw") && server->hasArg("c2b")) {
     handleSubmit();
   }
@@ -1541,7 +1561,7 @@ void handleRoot() {
     main_page += "<br><br>GPIO configuration:<br>";
     main_page += "GPIO" + String(RELAY_PIN) + " - relay<br>";
 #ifdef INPUTS
-#ifndef ESP01S
+#if !(defined(ESP01S) || defined(SONOFF_MINI))
     main_page += "GPIO" + String(INPUT_1_PIN) + " - INPUT 1<br>";
 #endif
     main_page += "GPIO" + String(INPUT_2_PIN) + " - INPUT 2<br>";
@@ -1646,7 +1666,7 @@ void handleRoot() {
     main_page += "<i>";
     main_page += "<select name=\"led\">";
     String l;
-#ifndef ESP01S
+#if !defined(ESP01S)
     l = ((led == 1) ? "selected" : "");
     main_page += "  <option " + l + " value=\"1\">LED pulse</option>";
 #endif
@@ -1667,7 +1687,7 @@ void handleRoot() {
     main_page += "<label>Boot relay state</label>";
     main_page += "</i>";
 #ifdef INPUTS
-#ifndef ESP01S
+#if !(defined(ESP01S) || defined(SONOFF_MINI))
     main_page += "<i>";
     main_page += "<select name=\"c1b\">";
     String b1 = ((input_1_mode == 0) ? "selected" : "");
@@ -1692,12 +1712,12 @@ void handleRoot() {
     main_page += "<option " + b2 + " value=\"3\">PULL UP bistable </option>";
     main_page += "</select>";
     main_page += "<label>GPIO" + String(INPUT_2_PIN) + " INPUT ";
-#ifndef ESP01S
+#if !(defined(ESP01S) || defined(SONOFF_MINI))
     main_page += "2";
 #endif
     main_page += "</label>";
     main_page += "</i>";
-#ifndef ESP01S
+#if !(defined(ESP01S) || defined(SONOFF_MINI))
     main_page += "<i>";
     main_page += "<input type=\"text\" name=\"crd\" value=\"";
     main_page += "{" + String(coord[0]) + ", " + String(coord[1]) + ", " + String(coord[2]) + "}";
@@ -1870,7 +1890,7 @@ void handleSubmit() {
   String c2b = server->arg("c2b");
   res += c2b;
   res += "<br>";
-#ifndef ESP01S
+#if !(defined(ESP01S) || defined(SONOFF_MINI))
   res += "channel 1 button: ";
   String c1b = server->arg("c1b");
   res += c1b;
@@ -1889,19 +1909,19 @@ void handleSubmit() {
   res += "rf button: ";
   String rfb = server->arg("rfb");
   res += rfb;
-  res += "<br>";
+  res += "<br>";one_16504200
 #endif
   res += "<br>";
   res += "</P><BR>";
   res += "<p><h2> Config saved. Restarting...</h2><p>";
   server->send(200, "text/html", res);
-#if defined(RF_BUTTON) && defined(INPUTS) && !defined(ESP01S)
+#if defined(RF_BUTTON) && defined(INPUTS) && !(defined(ESP01S) || defined(SONOFF_MINI))
   writeToMemory(sid, wpw, srv, eml, auk, gid, nam, led, sav, aid, apw, c2b, c1b, rfb, crd, tmr);
 #endif
-#if defined(INPUTS) && !defined(RF_BUTTON) && !defined(ESP01S)
+#if defined(INPUTS) && !defined(RF_BUTTON) && !(defined(ESP01S) || defined(SONOFF_MINI))
   writeToMemory(sid, wpw, srv, eml, auk, gid, nam, led, sav, aid, apw, c2b, c1b, crd, tmr);
 #endif
-#if defined(INPUTS) && defined(ESP01S)
+#if defined(INPUTS) && (defined(ESP01S) || defined(SONOFF_MINI))
   writeToMemory(sid, wpw, srv, eml, auk, gid, nam, led, sav, aid, apw, c2b);
 #endif
 #if defined(RF_BUTTON) && !defined(INPUTS)
@@ -1978,7 +1998,7 @@ void writeToMemory(String sid, String wpw, String srv, String eml, String auk,
 }
 #endif
 
-#if defined(INPUTS) && !defined(RF_BUTTON) && !defined(ESP01S)
+#if defined(INPUTS) && !defined(RF_BUTTON) && !(defined(ESP01S) || defined(SONOFF_MINI))
 void writeToMemory(String sid, String wpw, String srv, String eml, String auk,
                    String gid, String nam, String led, String sav, String aid, String apw,
                    String c2b, String c1b, String crd, String tmr) {
@@ -2023,7 +2043,7 @@ void writeToMemory(String sid, String wpw, String srv, String eml, String auk,
 }
 #endif
 
-#if defined(INPUTS) && defined(ESP01S)
+#if defined(INPUTS) && (defined(ESP01S) || defined(SONOFF_MINI))
 void writeToMemory(String sid, String wpw, String srv, String eml, String auk,
                    String gid, String nam, String led, String sav, String aid, String apw,
                    String c2b) {
@@ -2090,10 +2110,10 @@ void writeToMemory(String sid, String wpw, String srv, String eml, String auk, S
   writeEEPROM(apw, E_APPASS_ADRESS);
   rfb += ";";
   writeEEPROM(rfb, E_RF_BTN_VAL_ADRESS);
-  crd += ";";
-  writeEEPROM(crd, E_COORD_ADRESS);
-  tmr += ";";
-  writeEEPROM(tmr, E_PIR_TIMER_ADRESS);
+  //crd += ";";
+  //writeEEPROM(crd, E_COORD_ADRESS);
+  //tmr += ";";
+  //writeEEPROM(tmr, E_PIR_TIMER_ADRESS);
   EEPROM.write(E_MODE_ADRESS, 1);
   EEPROM.write(E_CONF_STATE, 1);
   delay(500);
@@ -2186,7 +2206,7 @@ void loop() {
   else {
     unsigned long n = millis();
     if (n > last_led_time + 100) {
-      digitalWrite(led_pin, (digitalRead(led_pin) == HIGH ? LOW : HIGH));
+      digitalWrite(LED_PIN, (digitalRead(LED_PIN) == HIGH ? LOW : HIGH));
       last_led_time = n;
     }
     if (server_started) {
